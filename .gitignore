@@ -1,0 +1,12 @@
+# Jupyter
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Compiled source #
+###################
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
