@@ -14,20 +14,20 @@ class ARMA:
         self.ma = ma
         self.c = constant
 
-    def simulate(self, noise = None, length = 100):
+    def simulate(self, noise = None, length = 100, nsim = 1):
         '''Simulate ARMA. Input: noise of the size of length'''
         if noise is None: # if no noise specified, make standard Gaussian noise
-            noise = np.random.randn(length)
+            noise = np.random.normal(size=(nsim, length))
         p, q = len(self.ar), len(self.ma) # Orders
-        maxOrder = max(p, q)
+        max_order = max(p, q)
         # Add zeroes on the left of the noise to loop from beginning
-        noise = np.concatenate((np.zeros(maxOrder), noise))
+        noise = np.concatenate((np.zeros([nsim, max_order]), noise), axis = 1)
         # numpy arrays are reversed for easier indexing:
         ar, ma = np.array(self.ar[::-1]), np.array(self.ma[::-1])
-        sim = np.zeros(length + maxOrder) # add zeros to not go out of bound when looping
-        for i in range(maxOrder, maxOrder + length):
-            sim[i] = np.sum(sim[i - p] * ar) + np.sum(noise[i - q] * ma) + noise[i] + self.c
-        return sim[maxOrder:] # remove zero terms added and return
+        sim = np.zeros((nsim, length + max_order)) # add zeros to stay within bound when looping
+        for i in range(max_order, max_order + length):
+            sim[:, i] = np.sum(sim[:, i - p:i] * ar, axis=1) + np.sum(noise[:, i - q:i] * ma) + noise[:, i] + self.c
+        return sim[:, max_order:].squeeze() # remove zero terms added and return
 
     def plotPath(self, noise = None, length = 100, ax = None, title = None):
         if ax is None:
@@ -44,7 +44,9 @@ class ARMA:
 
     def plotIrf(self, length = 30, ax = None):
         ''' Plot the impulse response function of the process '''
-        noise = np.concatenate((np.array([1]), np.zeros(length - 1)))
+        # make a no-constant ARMA to model IRF
+        ir = ARMA(self.ar, self.ma)
+        noise = np.concatenate((np.ones(shape = (1, 1)), np.zeros(shape = (1, length - 1))), axis = 1)
         title = 'IRF for ARMA (' + str(len(self.ar)) + ',' + str(len(self.ma)) + ')'
-        maxiVal = max(self.plotPath(noise, length, title = title))
+        maxiVal = max(ir.plotPath(noise, length, title = title))
         plt.ylim((-0.2, max(1., maxiVal) + 0.1))

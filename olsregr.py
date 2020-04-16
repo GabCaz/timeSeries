@@ -4,6 +4,7 @@ import pixiedust
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 import pandas as pd
+from timeseriesutils import getDimensions
 class OLSRegression:
     '''
     Attributes:
