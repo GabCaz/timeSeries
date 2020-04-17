@@ -18,7 +18,7 @@ class OLSRegression:
     *** n: number of observations
     *** k: number of regressors
     '''
-    def __init__(self, X, Y, conditionBound=100000, addConstant=False):
+    def __init__(self, X, Y, conditionBound=100000, addConstant=False, warning = False):
         # Computing OLS point Estimate
         self.hasConstant = addConstant
         if addConstant:
@@ -26,7 +26,7 @@ class OLSRegression:
         self.X = X.squeeze()
         self.Y = Y
         XPrimX = np.dot(np.transpose(X), X)
-        if np.linalg.cond(XPrimX) > conditionBound:
+        if np.linalg.cond(XPrimX) > conditionBound and warning:
             print('Warning: Sample equivalent of 2nd moment matrix close to singular. Check multicollinearity')
         self.XprimXInv = np.linalg.inv(XPrimX)
         self.beta_hat = self.XprimXInv.dot(X.T).dot(Y).squeeze()

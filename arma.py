@@ -1,4 +1,5 @@
 import statsmodels
+import pdb
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as stats
@@ -15,19 +16,20 @@ class ARMA:
 
     def simulate(self, noise = None, length = 100, nsim = 1):
         '''Simulate ARMA.
-           Input: noise of the size of length (by default, NWN)'''
+        Input: noise of the size of length (by default, NWN)'''
+        ar, ma = np.array(self.ar[::-1]), np.array(self.ma[::-1])
+        p, q = len(ar), len(ma) # Orders
+        max_order = max(p,q)
+
         if noise is None: # if no noise specified, make standard Gaussian noise
             noise = np.random.normal(size=(nsim, length))
-        p, q = len(self.ar), len(self.ma) # Orders
-        max_order = max(p, q)
-        # Add zeroes on the left of the noise to loop from beginning
-        noise = np.concatenate((np.zeros([nsim, max_order]), noise), axis = 1)
-        # numpy arrays are reversed for easier indexing:
-        ar, ma = np.array(self.ar[::-1]), np.array(self.ma[::-1])
+        # Add zeroes for t < 0 to loop from beginning
+        noise = np.concatenate((np.zeros([nsim, max_order]), noise), axis=1)
+        # numpy arrays are reversed for easier indexing
         sim = np.zeros((nsim, length + max_order)) # add zeros to stay within bound when looping
         for i in range(max_order, max_order + length):
-            sim[:, i] = np.sum(sim[:, i - p:i] * ar, axis=1) + np.sum(noise[:, i - q:i] * ma) + noise[:, i] + self.c
-        return sim[:, max_order:].squeeze() # remove zero terms added and return
+            sim[:, i] = np.sum(sim[:, i - p:i] * ar, axis=1) + np.sum(noise[:, i - q:i] * ma, axis=1) + noise[:, i] + self.c
+        # return sim[:, max_order:].squeeze() # remove zero terms added and return
 
     def plotPath(self, noise = None, length = 100, ax = None, title = None):
         if ax is None:
@@ -50,3 +52,9 @@ class ARMA:
         title = 'IRF for ARMA (' + str(len(self.ar)) + ',' + str(len(self.ma)) + ')'
         maxiVal = max(ir.plotPath(noise, length, title = title))
         plt.ylim((-0.2, max(1., maxiVal) + 0.1))
+
+if __name__ == '__main__':
+    # pdb.set_trace()
+    # q3 = ARMA(ar = [0.95, 0.9, 0.8])
+    # print(q3.simulate(length = 400)[350])
+    0
