@@ -1,6 +1,5 @@
 import statsmodels
 import numpy as np
-import pixiedust
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 import pandas as pd
@@ -19,12 +18,12 @@ class OLSRegression:
     *** n: number of observations
     *** k: number of regressors
     '''
-    def __init__(self, X, Y, conditionBound = 100000, addConstant = False):
+    def __init__(self, X, Y, conditionBound=100000, addConstant=False):
         # Computing OLS point Estimate
         self.hasConstant = addConstant
         if addConstant:
             X = np.c_[np.ones((Y.shape[0],1)), X]
-        self.X = X
+        self.X = X.squeeze()
         self.Y = Y
         XPrimX = np.dot(np.transpose(X), X)
         if np.linalg.cond(XPrimX) > conditionBound:
@@ -32,7 +31,7 @@ class OLSRegression:
         self.XprimXInv = np.linalg.inv(XPrimX)
         self.beta_hat = self.XprimXInv.dot(X.T).dot(Y).squeeze()
 
-    def summary(self, alpha = 0.95):
+    def summary(self, alpha=0.95):
         ''' prints coefficients, standard errors and common regression statistics '''
         self.computeCovMatrix()
         standardErrorsHom = [np.sqrt(se) for se in np.diagonal(self.homoskedasticCovMatrix)]
@@ -45,17 +44,19 @@ class OLSRegression:
         display(pd.DataFrame(summaryTable).transpose())
         self.getRegressionStatistics()
 
-    def computeCovMatrix(self):
+    def computeCovMatrix(self, heter = True):
+        self.n, self.k = getDimensions(self.X)
         # Computing resid
         self.resid = self.Y.squeeze() - np.dot(self.X, self.beta_hat)
-        # Getting covariance matrix in homoskedastic case
-        self.n, self.k = getDimensions(self.X)
-        self.homoskedasticCovMatrix = self.XprimXInv * (np.sum((self.resid)**2) / (self.n - self.k))
-        # Getting covariance matrix is heteroskedastic case
-        S = np.zeros((self.k, self.k)) # to compute central term in White Estimator
-        for i in range(self.n): # computing White estimator
-            S = S + np.outer(self.X[i,], self.X[i,]) * (self.resid[i] ** 2)
-        self.heteroskedasticCovMatrix = self.XprimXInv.dot(S).dot(self.XprimXInv)
+        if heter:
+            # Getting covariance matrix is heteroskedastic case
+            S = np.zeros((self.k, self.k)) # to compute central term in White Estimator
+            for i in range(self.n): # computing White estimator
+                S = S + np.outer(self.X[i,], self.X[i,]) * (self.resid[i] ** 2)
+            self.heteroskedasticCovMatrix = self.XprimXInv.dot(S).dot(self.XprimXInv)
+        else:
+            # Getting covariance matrix in homoskedastic case
+            self.homoskedasticCovMatrix = self.XprimXInv * (np.sum((self.resid)**2) / (self.n - self.k))
 
     def getRegressionStatistics(self):
         summaryTable = {'r2':[self.r2()], 'adjused r2:':[self.adjR2()]}

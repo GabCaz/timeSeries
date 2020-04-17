@@ -1,6 +1,5 @@
 import statsmodels
 import numpy as np
-import pixiedust
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 import pandas as pd
@@ -15,7 +14,8 @@ class ARMA:
         self.c = constant
 
     def simulate(self, noise = None, length = 100, nsim = 1):
-        '''Simulate ARMA. Input: noise of the size of length'''
+        '''Simulate ARMA.
+           Input: noise of the size of length (by default, NWN)'''
         if noise is None: # if no noise specified, make standard Gaussian noise
             noise = np.random.normal(size=(nsim, length))
         p, q = len(self.ar), len(self.ma) # Orders

@@ -1,9 +1,9 @@
+import pdb
 import numpy as np
-import pixiedust
 import matplotlib.pyplot as plt
 import scipy.stats as stats
-import pandas as pd
 from olsregr import OLSRegression
+from arma import ARMA
 class TimeSeries:
     '''
     A class to analyze time series
@@ -95,19 +95,28 @@ class TimeSeries:
         ''' Fit an AR(p) on the Time Series. Returns the corresponding OLSRegression object'''
         yLags = self.lagMatrix(p)
         estimate = OLSRegression(yLags[p:, 1:p + 1], # indep variables: all values lagged backwards
-                                 self.data[p:].reshape((-1,1)), # dep variable: values lagged forward
-                                 addConstant = addConstant)
+                                 self.data[p:].reshape((-1, 1)), # dep variable: values lagged forward
+                                 addConstant=addConstant)
         return estimate
 
     def augmentedDickeyFuller(self, lag):
-        ''' Returns the p-value of augmented Dickey-Fuller test
+        ''' Returns the statistic value of augmented Dickey-Fuller test
             (with given number of lags) for unit root '''
         lagMat = self.lagMatrix(lag)
         adfRegr = OLSRegression(lagMat[lag:, 1:lag + 1], # indep variables: all values lagged backwards
                                 lagMat[lag:, 0] - lagMat[lag:, 1], # dep variable: first difference
-                                addConstant = True)
+                                addConstant=True)
         adfRegr.computeCovMatrix()
-        return adfRegr.beta_hat[1]
+        return adfRegr.beta_hat[1] / adfRegr.heteroskedasticCovMatrix[1,1]
 
-    def differentiate(self, numDiff):
-        '''Differentiate the process 1, ..., numDiff times. Plot ACF and PACF everytime'''
+if __name__ == '__main__':
+    # q1 = ARMA(ar = [0.8], ma = [0.7])
+    # T = 1000
+    # simTimeSeries = TimeSeries(q1.simulate(length = T))
+    # # pdb.set_trace()
+    # ar = simTimeSeries.estimateAR(1, addConstant = False)
+    # ar.computeCovMatrix(heter = False)
+    # ts_q1 = TimeSeries(ar.resid)
+    # ts_q1.plotAcf()
+    # print(ar.resid.shape)
+    0
