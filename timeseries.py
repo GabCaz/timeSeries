@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import scipy.stats as stats
 from olsregr import OLSRegression
 from arma import ARMA
+import pandas as pd
 class TimeSeries:
     '''
     A class to analyze time series
@@ -18,56 +19,69 @@ class TimeSeries:
         self.name = name
         self.time_ticks = time_ticks
 
-    def plot_diff_data(self, diff=0):
+    def plot_diff_data(self, ax=None, num_diff=0):
         ''' plots the data differentiated diff (ie after applying
             delta ^ diff operator) '''
-        if diff != 0:
-            to_plot = self.data[:-diff].values - self.data[diff:].values
-        else:
-            to_plot = self.data
+        if ax is None:
+            _, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 5))
+        to_plot = self.__diff__(num_diff=num_diff)
+        # difference the data diff times
         if self.time_ticks is not None:
-            plt.plot(self.time_ticks[diff:], to_plot)
+            ax.plot(self.time_ticks[num_diff:], to_plot)
         else:
-            plt.plot(to_plot)
+            ax.plot(to_plot)
         if self.name is not None:
-            plt.title(str(self.name) + ' differenced ' + str(diff) + ' times ')
+            ax.set_title(str(self.name) + ' differenced ' + str(num_diff) + ' times ')
         else:
-            plt.title('time series differenced ' + str(diff) + ' times ')
+            ax.set_title('time series differenced ' + str(num_diff) + ' times ')
 
+    def find_order(self, num_diff=3, lag=25):
+        ''' plots ACF, PACF and data for several lags, with the objective of
+            finding the order of integration (eg number of unit roots in ARIMA
+            process) '''
+        _, ax = plt.subplots(nrows=num_diff, ncols=3, figsize=(18, 16))
+        for i in range(num_diff):
+            self.plot_diff_data(ax=ax[i][0], num_diff=i)
+            self.plotAcf(lag=lag, ax=ax[i][1], num_diff=i)
+            self.plotPacf(lag=lag, ax=ax[i][2], num_diff=i)
 
-    def getAcfLag(self, lag):
-        ''' returns the lag-th ACF of the data.
-            NB: This assumes stationarity (ACF depends only on the lag)'''
-        if lag == 0:
-            return 1.0
-        return OLSRegression(self.data[:-lag].reshape((-1, 1)), self.data[lag:].reshape((-1, 1)), addConstant=True).beta_hat[-1]
-
-    def getAcfUpToLag(self, lag):
-        ''' returns all ACF values up to the given lag '''
-        acf = []
-        for i in range(lag):
-            acf.append(self.getAcfLag(lag = i))
-        return acf
-
-    def plotAuto(self, values, lag, ax, title, xlabel = 'Time'):
+    def plotAuto(self, values, lag, title, ax=None, xlabel='Time'):
         '''plot function used for acf and pacf'''
         if ax is None:
-            fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (0.4 * lag, 5))
-        ax.plot(range(lag), values, marker = 'o', linestyle = '--')
-        plt.title(title)
-        plt.xlabel(xlabel)
-        plt.ylim(-1.1, 1.1)
+            _, ax = plt.subplots(nrows=1, ncols= 1, figsize=(0.4 * lag, 5))
+        ax.plot(range(lag), values, marker='o', linestyle='--')
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylim(-1.1, 1.1)
         # add vertical lines for readability
         for xc, yc in zip(range(lag), values):
-            plt.plot([xc, xc], [0, yc], 'k-', lw = 1)
+            ax.plot([xc, xc], [0, yc], 'k-', lw=1)
 
-    def plotAcf(self, lag = 25, ax = None, xlabel = 'Time'):
-        acfValues = self.getAcfUpToLag(lag)
+    def plotAcf(self, lag=25, ax=None, xlabel='Time', num_diff=0):
+        acfValues = self.getAcfUpToLag(lag, num_diff)
         if (self.name is None):
             title = 'ACF for ' + str(lag) + ' lags'
         else:
             title = 'ACF for ' + str(lag) + ' lags - ' + self.name
-        self.plotAuto(acfValues, lag, ax, title, xlabel)
+        self.plotAuto(values=acfValues, lag=lag, title=title, ax=ax, xlabel=xlabel)
+
+    def getAcfLag(self, lag, num_diff=0):
+        ''' returns the lag-th ACF of the data.
+            NB: This assumes stationarity (ACF depends only on the lag)
+            Gives the possibility to apply num_diff difference operator '''
+        diffed = self.__diff__(num_diff)
+        if lag == 0:
+            return 1.0
+        return (OLSRegression(diffed[:-lag].reshape((-1, 1)),
+                diffed[lag:].reshape((-1, 1)),
+                addConstant=True).beta_hat[-1])
+
+    def getAcfUpToLag(self, lag, num_diff=0):
+        ''' returns all ACF values up to the given lag '''
+        acf = []
+        for i in range(lag):
+            acf.append(self.getAcfLag(lag=i, num_diff=num_diff))
+        return acf
 
     def getPacfLag(self, lag, yLags):
         '''returns the acf at a given lag
@@ -77,38 +91,40 @@ class TimeSeries:
         '''
         if lag == 0:
             return 1.0
-        else:
-            return OLSRegression(yLags[lag:, 1:lag+1], # indep variables: all values lagged backwards
-                                 self.data[lag:].reshape((-1,1)), # dep variable: values lagged forward
-                                 addConstant = True).beta_hat[-1] # return the last regression coefficient
+        return OLSRegression(yLags[lag:, 1:lag+1], # indep variables: all values lagged backwards
+                            yLags[lag:, 0], # dep variable: values lagged forward
+                            addConstant=True).beta_hat[-1] # return the last regression coefficient
 
-    def getPacfUpToLag(self, lag):
+    def getPacfUpToLag(self, lag, num_diff=0):
         ''' returns the PACF values up to the given lag '''
         pacf = []
-        yLags = self.lagMatrix(lag)
+        diffed_lagged = self.lagMatrix(lag, num_diff=num_diff)
         for i in range(lag):
-            pacf.append(self.getPacfLag(i, yLags))
+            pacf.append(self.getPacfLag(i, diffed_lagged))
         return pacf
 
-    def plotPacf(self, lag = 25, ax = None, xlabel = 'Time'):
-        acfValues = self.getPacfUpToLag(lag)
-        if (self.name is None):
+    def plotPacf(self, lag=25, ax=None, xlabel='Time', num_diff=0):
+        acfValues = self.getPacfUpToLag(lag, num_diff)
+        if self.name is None:
             title = 'PACF for ' + str(lag) + ' lags'
         else:
             title = 'PACF for ' + str(lag) + ' lags - ' + self.name
-        self.plotAuto(acfValues, lag, ax, title, xlabel)
+        if num_diff:
+            title = title + ' (' + str(num_diff) + 'd ifferences)'
+        self.plotAuto(values=acfValues, lag=lag, title=title, ax=ax, xlabel=xlabel)
 
-    def lagMatrix(self, nlags, fill_vals = np.nan):
+    def lagMatrix(self, nlags, fill_vals=np.nan, num_diff=0):
         '''Creates a matrix of lags'''
-        yLags = np.empty((self.data.shape[0], nlags + 1))
+        diffed = self.__diff__(num_diff)
+        yLags = np.empty((diffed.shape[0], nlags + 1))
         yLags.fill(fill_vals)
         ### Include 0 lag
-        yLags[:, 0] = self.data
+        yLags[:, 0] = diffed
         for lag in range(1, nlags + 1):
-            yLags[lag:, lag] = self.data[:-lag]
+            yLags[lag:, lag] = diffed[:-lag]
         return yLags
 
-    def estimateAR(self, p, addConstant = True):
+    def estimateAR(self, p, addConstant=True):
         ''' Fit an AR(p) on the Time Series. Returns the corresponding OLSRegression object'''
         yLags = self.lagMatrix(p)
         estimate = OLSRegression(yLags[p:, 1:p + 1], # indep variables: all values lagged backwards
@@ -123,17 +139,21 @@ class TimeSeries:
         adfRegr = OLSRegression(lagMat[lag:, 1:lag + 1], # indep variables: all values lagged backwards
                                 lagMat[lag:, 0] - lagMat[lag:, 1], # dep variable: first difference
                                 addConstant=True)
-        adfRegr.computeCovMatrix()
+        adfRegr.__computeCovMatrix__()
         return adfRegr.beta_hat[1] / adfRegr.heteroskedasticCovMatrix[1,1]
 
+    def __diff__(self, num_diff):
+        ''' applies the diff lag operator num_diff times (ie delta ^ num_diff) '''
+        to_diff = np.copy(self.data)
+        for d in list(range(num_diff)):
+            to_diff = to_diff[1:] - to_diff[:-1]
+        return to_diff
+
 if __name__ == '__main__':
-    # q1 = ARMA(ar = [0.8], ma = [0.7])
-    # T = 1000
-    # simTimeSeries = TimeSeries(q1.simulate(length = T))
-    # # pdb.set_trace()
-    # ar = simTimeSeries.estimateAR(1, addConstant = False)
-    # ar.computeCovMatrix(heter = False)
-    # ts_q1 = TimeSeries(ar.resid)
-    # ts_q1.plotAcf()
-    # print(ar.resid.shape)
+    # pdb.set_trace()
+    data=pd.read_excel("Tbill10yr.xls",skiprows=14)
+    data.columns=["Date",'Yield']
+    test = TimeSeries(data = data['Yield'].values, time_ticks = data['Date'].values)
+    test.plot_diff_data(num_diff = 4)
+    test.find_order()
     0

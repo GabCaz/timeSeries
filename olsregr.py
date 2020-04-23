@@ -44,7 +44,7 @@ class OLSRegression:
         display(pd.DataFrame(summaryTable).transpose())
         self.getRegressionStatistics()
 
-    def computeCovMatrix(self, heter = True):
+    def __computeCovMatrix__(self, heter = True):
         self.n, self.k = getDimensions(self.X)
         # Computing resid
         self.resid = self.Y.squeeze() - np.dot(self.X, self.beta_hat)
