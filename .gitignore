@@ -13,3 +13,7 @@
 *.exe
 *.o
 *.so
+
+# Raw data #
+*.xls
+*.csv
