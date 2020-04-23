@@ -12,18 +12,35 @@ class TimeSeries:
     *** data: a numpy array representing a time series
     *** name (optional): name of the time series
     '''
-    def __init__(self, data, name = None):
+    def __init__(self, data, name=None, time_ticks=None):
         '''data: a numpy array representing a time series'''
         self.data = data
         self.name = name
+        self.time_ticks = time_ticks
+
+    def plot_diff_data(self, diff=0):
+        ''' plots the data differentiated diff (ie after applying
+            delta ^ diff operator) '''
+        if diff != 0:
+            to_plot = self.data[:-diff].values - self.data[diff:].values
+        else:
+            to_plot = self.data
+        if self.time_ticks is not None:
+            plt.plot(self.time_ticks[diff:], to_plot)
+        else:
+            plt.plot(to_plot)
+        if self.name is not None:
+            plt.title(str(self.name) + ' differenced ' + str(diff) + ' times ')
+        else:
+            plt.title('time series differenced ' + str(diff) + ' times ')
+
 
     def getAcfLag(self, lag):
         ''' returns the lag-th ACF of the data.
             NB: This assumes stationarity (ACF depends only on the lag)'''
         if lag == 0:
             return 1.0
-        else:
-            return OLSRegression(self.data[:-lag].reshape((-1,1)),self.data[lag:].reshape((-1,1)), addConstant = True).beta_hat[-1]
+        return OLSRegression(self.data[:-lag].reshape((-1, 1)), self.data[lag:].reshape((-1, 1)), addConstant=True).beta_hat[-1]
 
     def getAcfUpToLag(self, lag):
         ''' returns all ACF values up to the given lag '''
