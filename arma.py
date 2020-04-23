@@ -29,7 +29,7 @@ class ARMA:
         sim = np.zeros((nsim, length + max_order)) # add zeros to stay within bound when looping
         for i in range(max_order, max_order + length):
             sim[:, i] = np.sum(sim[:, i - p:i] * ar, axis=1) + np.sum(noise[:, i - q:i] * ma, axis=1) + noise[:, i] + self.c
-        # return sim[:, max_order:].squeeze() # remove zero terms added and return
+        return sim[:, max_order:].T.squeeze() # remove zero terms added and return
 
     def plotPath(self, noise = None, length = 100, ax = None, title = None):
         if ax is None:
