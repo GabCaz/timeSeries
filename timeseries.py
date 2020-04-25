@@ -151,9 +151,12 @@ class TimeSeries:
 
 if __name__ == '__main__':
     # pdb.set_trace()
-    data=pd.read_excel("Tbill10yr.xls",skiprows=14)
-    data.columns=["Date",'Yield']
-    test = TimeSeries(data = data['Yield'].values, time_ticks = data['Date'].values)
-    test.plot_diff_data(num_diff = 4)
-    test.find_order()
+    # # Load data
+    # data=pd.read_excel("Tbill10yr.xls",skiprows=14)
+    #
+    # # set index and change names
+    # data.columns=["Date",'Yield']
+    # test = TimeSeries(data = data['Yield'].values, time_ticks = data['Date'].values)
+    # myar = test.estimateAR(p = 2)
+    # myar.__newey_west__()
     0

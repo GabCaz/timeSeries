@@ -31,7 +31,7 @@ class ARMA:
             sim[:, i] = np.sum(sim[:, i - p:i] * ar, axis=1) + np.sum(noise[:, i - q:i] * ma, axis=1) + noise[:, i] + self.c
         return sim[:, max_order:].T.squeeze() # remove zero terms added and return
 
-    def plotPath(self, noise = None, length = 100, ax = None, title = None):
+    def plotPath(self, noise=None, length=100, ax=None, title=None):
         if ax is None:
             fig, ax = plt.subplots()
         sim = self.simulate(noise, length)
@@ -44,7 +44,7 @@ class ARMA:
         plt.grid()
         return sim
 
-    def plotIrf(self, length = 30, ax = None):
+    def plotIrf(self, length=30, ax=None):
         ''' Plot the impulse response function of the process '''
         # make a no-constant ARMA to model IRF
         ir = ARMA(self.ar, self.ma)
