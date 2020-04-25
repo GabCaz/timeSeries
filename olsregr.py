@@ -85,14 +85,13 @@ class OLSRegression:
         self.newey_cov_matrix = self.XprimXInv.dot(sandwich).dot(self.XprimXInv)
 
     def getRegressionStatistics(self):
-        summaryTable = {'r2':[self.r2()], 'adjused r2:':[self.adjR2()]}
-        display(pd.DataFrame(summaryTable))
-
-    def r2(self):
         SSE = np.sum(self.resid ** 2)
         mean = np.mean(self.Y)
         SST = np.sum((self.Y - mean)**2)
-        return 1 - SSE / SST
-
-    def adjR2(self):
-        return 1 - (1 - self.r2()) * (self.n - 1) / (self.n - self.k - 1)
+        r2 = 1 - SSE / SST
+        adjr2 = 1 - (1 - r2) * (self.n - 1) / (self.n - self.k - 1)
+        logL = -(self.n / 2) * np.log(2 * np.pi * ((SSE / self.n) ** 2)) - (self.n - self.k) / 2
+        aic = -2 * logL + 2 * self.k
+        bic = -2 * logL + 2 * self.k * np.log(self.n)
+        summaryTable = {'r2':[r2], 'adjused r2:':[adjr2], 'aic':aic, 'bic':bic}
+        display(pd.DataFrame(summaryTable))
