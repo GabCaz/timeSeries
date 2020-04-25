@@ -5,6 +5,7 @@ import scipy.stats as stats
 from olsregr import OLSRegression
 from arma import ARMA
 import pandas as pd
+from statsmodels.tsa.stattools import adfuller
 class TimeSeries:
     '''
     A class to analyze time series
@@ -40,15 +41,44 @@ class TimeSeries:
             finding the order of integration (eg number of unit roots in ARIMA
             process) '''
         _, ax = plt.subplots(nrows=num_diff, ncols=3, figsize=(18, 16))
+        adfs = {}
         for i in range(num_diff):
             self.plot_diff_data(ax=ax[i][0], num_diff=i)
             self.plotAcf(lag=lag, ax=ax[i][1], num_diff=i)
             self.plotPacf(lag=lag, ax=ax[i][2], num_diff=i)
+            dict_adf = self.adf_test(num_diff=i)
+            adfs['diff ' + str(i)] = pd.Series(dict_adf)
+        summar = pd.DataFrame(adfs)
+        display(summar)
+
+    def adf_test(self, lags=[3, 7, 10], num_diff=0):
+        ''' Returns the statistic value of augmented Dickey-Fuller test
+        (with given number of lags) for unit root '''
+        dict_for_diff = {}
+        ################## FOR DOCUMENTATION #####################
+        # My code to compute the adf statistic
+        # for lag in lags:
+        #     lagMat = self.lagMatrix(lag + 1, num_diff=num_diff)
+        #     # indep variables: previous level and all values lagged backwards
+        #     indep = np.hstack([lagMat[lag:, 1].reshape((-1, 1)), lagMat[lag:, 1:lag] - lagMat[lag:, 2:lag + 1]])
+        #     adfRegr = OLSRegression(X=indep,
+        #                             Y=lagMat[lag:, 0] - lagMat[lag:, 1], # dep var: first difference
+        #                             addConstant=True)
+        #     adfRegr.__computeCovMatrix__()
+        #     dict_for_diff['adf stat lag ' + str(lag)] = (adfRegr.beta_hat[1]
+        #                     / np.sqrt(adfRegr.heteroskedasticCovMatrix[1,1]))
+        # return dict_for_diff
+        #############################################################
+        diffed = self.__diff__(num_diff)
+        for lag in lags:
+            p_value = adfuller(diffed, maxlag=lag, regression='nc')[1]
+            dict_for_diff['adf pval, ' + str(lag) + ' lags'] = p_value
+        return dict_for_diff
 
     def plotAuto(self, values, lag, title, ax=None, xlabel='Time'):
         '''plot function used for acf and pacf'''
         if ax is None:
-            _, ax = plt.subplots(nrows=1, ncols= 1, figsize=(0.4 * lag, 5))
+            _, ax = plt.subplots(nrows=1, ncols=1, figsize=(0.4 * lag, 5))
         ax.plot(range(lag), values, marker='o', linestyle='--')
         ax.set_title(title)
         ax.set_xlabel(xlabel)
@@ -136,16 +166,6 @@ class TimeSeries:
             return ARMA(ar = estimate.beta_hat[1:], constant = estimate.beta_hat[0])
         return ARMA(ar = estimate.beta_hat)
 
-    def augmentedDickeyFuller(self, lag):
-        ''' Returns the statistic value of augmented Dickey-Fuller test
-            (with given number of lags) for unit root '''
-        lagMat = self.lagMatrix(lag)
-        adfRegr = OLSRegression(lagMat[lag:, 1:lag + 1], # indep variables: all values lagged backwards
-                                lagMat[lag:, 0] - lagMat[lag:, 1], # dep variable: first difference
-                                addConstant=True)
-        adfRegr.__computeCovMatrix__()
-        return adfRegr.beta_hat[1] / adfRegr.heteroskedasticCovMatrix[1,1]
-
     def __diff__(self, num_diff):
         ''' applies the diff lag operator num_diff times (ie delta ^ num_diff) '''
         to_diff = np.copy(self.data)
@@ -156,11 +176,11 @@ class TimeSeries:
 if __name__ == '__main__':
     # pdb.set_trace()
     # # Load data
-    # data=pd.read_excel("Tbill10yr.xls",skiprows=14)
+    # data = pd.read_excel("Tbill10yr.xls",skiprows=14)
     #
     # # set index and change names
-    # data.columns=["Date",'Yield']
-    # test = TimeSeries(data = data['Yield'].values, time_ticks = data['Date'].values)
-    # myar = test.estimateAR(p = 2)
-    # myar.__newey_west__()
+    # data.columns = ["Date", 'Yield']
+    # test = TimeSeries(data=data['Yield'].values, time_ticks=data['Date'].values)
+    # test.adf_test(num_diff=1)
+    # test.find_order()
     0

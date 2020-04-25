@@ -90,7 +90,7 @@ class OLSRegression:
         SST = np.sum((self.Y - mean)**2)
         r2 = 1 - SSE / SST
         adjr2 = 1 - (1 - r2) * (self.n - 1) / (self.n - self.k - 1)
-        logL = -(self.n / 2) * np.log(2 * np.pi * ((SSE / self.n) ** 2)) - (self.n - self.k) / 2
+        logL = - (self.n / 2) * np.log(2 * np.pi * ((SSE / (self.n - self.k)))) - (self.n - self.k) / 2
         aic = -2 * logL + 2 * self.k
         bic = -2 * logL + 2 * self.k * np.log(self.n)
         summaryTable = {'r2':[r2], 'adjused r2:':[adjr2], 'aic':aic, 'bic':bic}
