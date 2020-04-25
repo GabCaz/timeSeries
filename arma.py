@@ -14,7 +14,7 @@ class ARMA:
         self.ma = ma
         self.c = constant
 
-    def simulate(self, noise = None, length = 100, nsim = 1):
+    def simulate(self, noise=None, length=100, nsim=1):
         '''Simulate ARMA.
         Input: noise of the size of length (by default, NWN)'''
         ar, ma = np.array(self.ar[::-1]), np.array(self.ma[::-1])

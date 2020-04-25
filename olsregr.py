@@ -40,14 +40,16 @@ class OLSRegression:
         standardErrorsHom = [np.sqrt(se) for se in np.diagonal(self.homoskedasticCovMatrix)]
         standardErrorsWhite = [np.sqrt(se) for se in np.diagonal(self.heteroskedasticCovMatrix)]
         standardErrorsNw = [np.sqrt(se) for se in np.diagonal(self.newey_cov_matrix)]
+        tstats = self.beta_hat / standardErrorsWhite
+        pvalues = (1 - stats.norm.cdf(np.abs(tstats))) * 2
         summaryTable = dict()
-        for i, coefficient, seHom, seHet, seNw in zip(range(self.k), self.beta_hat,
+        for i, coefficient, seHom, seHet, seNw, pval in zip(range(self.k), self.beta_hat,
                                                 standardErrorsHom, standardErrorsWhite,
-                                                standardErrorsNw):
-            summaryTable['beta ' + str(i)] = pd.Series(data = [coefficient, seHom, seHet, seNw],
+                                                standardErrorsNw, pvalues):
+            summaryTable['beta ' + str(i)] = pd.Series(data = [coefficient, seHom, seHet, seNw, pval],
                                                        index = ['point estimate', 'se (homoskedastic)',
                                                                'se (White estimator)',
-                                                               'se Newey-West'])
+                                                               'se Newey-West', 'p-value (using White)'])
         display(pd.DataFrame(summaryTable).transpose())
         self.getRegressionStatistics()
 
@@ -81,22 +83,6 @@ class OLSRegression:
             lagged = np.multiply(x_lag, eps_lag)
             sandwich += ((1 - lag) / (1 + lags)) * (np.matmul(present.T,lagged) + np.matmul(lagged.T, present))
         self.newey_cov_matrix = self.XprimXInv.dot(sandwich).dot(self.XprimXInv)
-
-
-
-#         Xlag = X[0:T-lags]
-#         Xpresent = X[lags:T]
-#         ϵLag=ϵ[0:T-lags].A
-#         Xpϵ=np.matrix(Xpresent.A*ϵPresent)
-#         Xlϵ=np.matrix(Xlag.A*ϵLag)
-#
-#         sandwich = sandwich+(1-lags/(Lags+1))*(Xpϵ.T@Xlϵ+Xlϵ.T@Xpϵ)
-#         #new=(1-lags/(Lags+1))*(Xpϵ.T@Xlϵ+Xlϵ.T@Xpϵ)
-#         #print(new)
-#
-#
-#     var_β = XprimeX.I@sandwich@XprimeX.I
-#     return var_β
 
     def getRegressionStatistics(self):
         summaryTable = {'r2':[self.r2()], 'adjused r2:':[self.adjR2()]}

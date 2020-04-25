@@ -130,7 +130,11 @@ class TimeSeries:
         estimate = OLSRegression(yLags[p:, 1:p + 1], # indep variables: all values lagged backwards
                                  self.data[p:].reshape((-1, 1)), # dep variable: values lagged forward
                                  addConstant=addConstant)
-        return estimate
+        estimate.summary() # print estimation summary
+        # return the corresponding AR object
+        if (addConstant):
+            return ARMA(ar = estimate.beta_hat[1:], constant = estimate.beta_hat[0])
+        return ARMA(ar = estimate.beta_hat)
 
     def augmentedDickeyFuller(self, lag):
         ''' Returns the statistic value of augmented Dickey-Fuller test
