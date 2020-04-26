@@ -1,6 +1,4 @@
-import statsmodels
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.stats as stats
 import pandas as pd
 from timeseriesutils import getDimensions
@@ -18,21 +16,32 @@ class OLSRegression:
     *** n: number of observations
     *** k: number of regressors
     '''
-    def __init__(self, X, Y, conditionBound=100000, addConstant=False, warning=False):
+    def __init__(self, X, Y, conditionBound=100000, addConstant=False, warning=False, Z=None):
+        ''' creating a regression object, possiblly with instrument variable Z '''
         # Computing OLS point Estimate
-        self.hasConstant = addConstant
-        if addConstant:
-            X = np.c_[np.ones((Y.shape[0],1)), X]
-        self.X = X.squeeze()
-        self.Y = Y.squeeze()
-        XPrimX = np.dot(np.transpose(X), X)
-        if np.linalg.cond(XPrimX) > conditionBound and warning:
-            print('Warning: Sample equivalent of 2nd moment matrix close to singular. Check multicollinearity')
-        self.XprimXInv = np.linalg.inv(XPrimX)
-        self.beta_hat = self.XprimXInv.dot(X.T).dot(Y).squeeze()
+        if Z is None:
+            self.hasConstant = addConstant
+            if addConstant:
+                X = np.c_[np.ones((Y.shape[0],1)), X]
+            self.X = X.squeeze()
+            self.Y = Y.squeeze()
+            XPrimX = np.dot(np.transpose(X), X)
+            if np.linalg.cond(XPrimX) > conditionBound and warning:
+                print('Warning: Sample equivalent of 2nd moment matrix close to singular. Check multicollinearity')
+            self.XprimXInv = np.linalg.inv(XPrimX)
+            self.beta_hat = self.XprimXInv.dot(X.T).dot(Y).squeeze()
+        if Z is not None:
+            if addConstant:
+                X = np.c_[np.ones((Y.shape[0],1)), X]
+                Z = np.c_[np.ones((Y.shape[0],1)), Z]
+            ZPrimX = np.dot(np.transpose(Z), X)
+            if np.linalg.cond(ZPrimX) > conditionBound and warning:
+                print('Warning: Sample equivalent of 2nd moment matrix close to singular. Check multicollinearity')
+            self.ZPrimXInv = np.linalg.inv(ZPrimX)
+            self.beta_hat = self.ZPrimXInv.dot(Z.T).dot(Y).squeeze()
         self.n, self.k = getDimensions(X)
 
-    def summary(self, alpha=0.95):
+    def summary(self):
         ''' prints coefficients, standard errors and common regression statistics '''
         self.__computeCovMatrix__()
         self.__computeCovMatrix__(white=False)
@@ -93,5 +102,7 @@ class OLSRegression:
         logL = - (self.n / 2) * np.log(2 * np.pi * ((SSE / (self.n - self.k)))) - (self.n - self.k) / 2
         aic = -2 * logL + 2 * self.k
         bic = -2 * logL + 2 * self.k * np.log(self.n)
-        summaryTable = {'r2':[r2], 'adjused r2:':[adjr2], 'aic':aic, 'bic':bic}
+        hannan_quinn = -2 * logL + 2 * self.k * np.log(np.log(self.n))
+        summaryTable = {'r2':[r2], 'adjused r2':[adjr2], 'aic':aic, 'bic':bic,
+                        'Hannan Quinn':hannan_quinn}
         display(pd.DataFrame(summaryTable))

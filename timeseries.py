@@ -8,11 +8,11 @@ import pandas as pd
 from statsmodels.tsa.stattools import adfuller
 class TimeSeries:
     '''
-    A class to analyze time series
-    Dependencies: OLS Regression
+    A class to perform early exploration on time series and fit some models
     Attributes:
     *** data: a numpy array representing a time series
     *** name (optional): name of the time series
+    *** time_ticks (optional): the corresponding time labels
     '''
     def __init__(self, data, name=None, time_ticks=None):
         '''data: a numpy array representing a time series'''
@@ -40,7 +40,7 @@ class TimeSeries:
         ''' plots ACF, PACF and data for several lags, with the objective of
             finding the order of integration (eg number of unit roots in ARIMA
             process) '''
-        _, ax = plt.subplots(nrows=num_diff, ncols=3, figsize=(18, 16))
+        _, ax = plt.subplots(nrows=num_diff, ncols=3, figsize=(18, 5 * num_diff), squeeze=False)
         adfs = {}
         for i in range(num_diff):
             self.plot_diff_data(ax=ax[i][0], num_diff=i)
@@ -163,8 +163,8 @@ class TimeSeries:
         estimate.summary() # print estimation summary
         # return the corresponding AR object
         if (addConstant):
-            return ARMA(ar = estimate.beta_hat[1:], constant = estimate.beta_hat[0])
-        return ARMA(ar = estimate.beta_hat)
+            return ARMA(ar=estimate.beta_hat[1:], constant=estimate.beta_hat[0])
+        return ARMA(ar=estimate.beta_hat)
 
     def __diff__(self, num_diff):
         ''' applies the diff lag operator num_diff times (ie delta ^ num_diff) '''
