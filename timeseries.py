@@ -71,7 +71,7 @@ class TimeSeries:
         #############################################################
         diffed = self.__diff__(num_diff)
         for lag in lags:
-            p_value = adfuller(diffed, maxlag=lag, regression='nc')[1]
+            p_value = adfuller(diffed, maxlag=lag, regression='c')[1]
             dict_for_diff['adf pval, ' + str(lag) + ' lags'] = p_value
         return dict_for_diff
 
