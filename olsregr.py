@@ -1,3 +1,4 @@
+from scipy.stats import norm # for confidence intervals
 import numpy as np
 import scipy.stats as stats
 import pandas as pd
@@ -107,40 +108,34 @@ class OLSRegression:
                         'Hannan Quinn':hannan_quinn}
         display(pd.DataFrame(summaryTable))
 
+    def confidence_interval(self, cov_matrix='ols', alpha=0.95):
+        ''' prints the coefficients, the p-value for the test 'is zero', and an
+        alpha confidence interval. Depending on the method, use ols, white or
+        Newey-West variance-covariance matrix '''
+        if cov_matrix == 'ols':
+            # standard errors are ols
+            self.__computeCovMatrix__(white=False)
+            ses = [np.sqrt(se) for se in np.diagonal(self.homoskedasticCovMatrix)]
+        elif cov_matrix == 'white':
+            self.__computeCovMatrix__(white=True)
+            ses = [np.sqrt(se) for se in np.diagonal(self.heteroskedasticCovMatrix)]
+        elif cov_matrix == 'nw':
+            self.__newey_west__()
+            ses = [np.sqrt(se) for se in np.diagonal(self.newey_cov_matrix)]
+        summaryTable = dict()
+        tstats = self.beta_hat / ses
+        pvalues = (1 - stats.norm.cdf(np.abs(tstats))) * 2
+        conf_multiplicator = norm.ppf((1 + alpha) / 2)
+        for i, coeff, se, pval in zip(range(self.k), self.beta_hat, ses, pvalues):
+            interv = (str(np.round(coeff - conf_multiplicator * se, 2)) + ' - '
+                        + str(np.round(coeff + conf_multiplicator * se, 2)))
+            summaryTable['beta ' + str(i)] = pd.Series(data=[coeff, se, pval, interv],
+                                                       index=['point estimate',
+                                                       'se using ' + cov_matrix,
+                                                       'p-value (using ' + cov_matrix + ')',
+                                                        str(alpha) + ' confidence interval'])
+        display(pd.DataFrame(summaryTable).transpose())
 
-def NeweyWest(Y,X,β_hat,Lags):
-    Y=np.matrix(Y).T
-    _,k=np.shape(X)
-    if k<len(β_hat):
-        X = sm.tools.add_constant(X)
-    X=np.matrix(X)
-    β_hat = np.matrix(β_hat).T
-    ϵ=Y-X@β_hat
-
-    # White Estimator
-
-    XTϵ=np.matrix(X.T.A*ϵ.A1)  # element multiplication here is not a typo and annoyingly needs to be done on arrays
-    XprimeX = X.T@X
-    sandwich=XTϵ@XTϵ.T
-
-    #Lagged addition
-    for lags in range(1,Lags):
-        # truncate matrixes
-        T=np.shape(X)[0]
-        Xlag = X[0:T-lags]
-        Xpresent = X[lags:T]
-        ϵPresent=ϵ[lags:T].A
-        ϵLag=ϵ[0:T-lags].A
-        Xpϵ=np.matrix(Xpresent.A*ϵPresent)
-        Xlϵ=np.matrix(Xlag.A*ϵLag)
-
-        sandwich = sandwich+(1-lags/(Lags+1))*(Xpϵ.T@Xlϵ+Xlϵ.T@Xpϵ)
-        #new=(1-lags/(Lags+1))*(Xpϵ.T@Xlϵ+Xlϵ.T@Xpϵ)
-        #print(new)
-
-
-    var_β = XprimeX.I@sandwich@XprimeX.I
-    return var_β
 
 if __name__ == '__main__':
     # import pdb
