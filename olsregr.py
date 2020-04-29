@@ -67,7 +67,7 @@ class OLSRegression:
         self.resid = self.Y.squeeze() - np.dot(self.X, self.beta_hat)
         if white:
             # Getting covariance matrix is heteroskedastic case
-            x_eps = np.multiply(self.X, self.resid.reshape((-1,1)))
+            x_eps = np.multiply(self.X, self.resid.reshape((-1, 1)))
             sandwich = np.matmul(x_eps.T, x_eps)
             self.heteroskedasticCovMatrix = self.XprimXInv.dot(sandwich).dot(self.XprimXInv)
         else:
@@ -77,20 +77,20 @@ class OLSRegression:
     def __newey_west__(self, lags=5):
         ''' compute the newey_west matrix with a given number of lag. Use if
         think errors are serially correlated '''
-        # White Estimator
         self.resid = self.Y.squeeze() - np.dot(self.X, self.beta_hat)
-        x_eps = np.multiply(self.X, self.resid.reshape((-1,1)))
-        sandwich = np.matmul(x_eps.T, x_eps)
+        x_eps = np.multiply(self.X, self.resid.reshape((-1, 1)))
+        sandwich = np.matmul(x_eps.T, x_eps) # White Estimator
         # Add lags
         for lag in range(1, lags):
-            # Credit to Nick Sanders (Berkeley) here
+            # Nick Sanders's implementation idea here; mistakes are mine
             x_lag = self.X[:-lag,]
             x_present = self.X[lag:,]
-            eps_present = self.resid[lag:].reshape((-1,1))
-            eps_lag = self.resid[:-lag].reshape((-1,1))
+            eps_present = self.resid[lag:].reshape((-1, 1))
+            eps_lag = self.resid[:-lag].reshape((-1, 1))
             present = np.multiply(x_present, eps_present)
             lagged = np.multiply(x_lag, eps_lag)
-            sandwich += ((1 - lag) / (1 + lags)) * (np.matmul(present.T,lagged) + np.matmul(lagged.T, present))
+            sandwich += ((1 - lag / (1 + lags)) * (np.matmul(present.T, lagged)
+                        + np.matmul(lagged.T, present)))
         self.newey_cov_matrix = self.XprimXInv.dot(sandwich).dot(self.XprimXInv)
 
     def getRegressionStatistics(self):
@@ -106,3 +106,61 @@ class OLSRegression:
         summaryTable = {'r2':[r2], 'adjused r2':[adjr2], 'aic':aic, 'bic':bic,
                         'Hannan Quinn':hannan_quinn}
         display(pd.DataFrame(summaryTable))
+
+
+def NeweyWest(Y,X,β_hat,Lags):
+    Y=np.matrix(Y).T
+    _,k=np.shape(X)
+    if k<len(β_hat):
+        X = sm.tools.add_constant(X)
+    X=np.matrix(X)
+    β_hat = np.matrix(β_hat).T
+    ϵ=Y-X@β_hat
+
+    # White Estimator
+
+    XTϵ=np.matrix(X.T.A*ϵ.A1)  # element multiplication here is not a typo and annoyingly needs to be done on arrays
+    XprimeX = X.T@X
+    sandwich=XTϵ@XTϵ.T
+
+    #Lagged addition
+    for lags in range(1,Lags):
+        # truncate matrixes
+        T=np.shape(X)[0]
+        Xlag = X[0:T-lags]
+        Xpresent = X[lags:T]
+        ϵPresent=ϵ[lags:T].A
+        ϵLag=ϵ[0:T-lags].A
+        Xpϵ=np.matrix(Xpresent.A*ϵPresent)
+        Xlϵ=np.matrix(Xlag.A*ϵLag)
+
+        sandwich = sandwich+(1-lags/(Lags+1))*(Xpϵ.T@Xlϵ+Xlϵ.T@Xpϵ)
+        #new=(1-lags/(Lags+1))*(Xpϵ.T@Xlϵ+Xlϵ.T@Xpϵ)
+        #print(new)
+
+
+    var_β = XprimeX.I@sandwich@XprimeX.I
+    return var_β
+
+if __name__ == '__main__':
+    # import pdb
+    # from statsmodels.regression.linear_model import OLS
+    # from pandas_datareader.famafrench import get_available_datasets
+    # import pandas_datareader.data as web
+    # import datetime
+    # from statsmodels.tools.tools import add_constant
+    # pdb.set_trace()
+    # start = datetime.datetime(1963, 7, 1)
+    # data_5factors = web.DataReader('F-F_Research_Data_5_Factors_2x3', 'famafrench', start=start)
+    # data_mom = web.DataReader('F-F_Momentum_Factor', 'famafrench', start=start)
+    # data_25port = web.DataReader('25_Portfolios_ME_Prior_12_2', 'famafrench', start=start)
+    # df_5factors = data_5factors[0]
+    # df_mom = data_mom[0]
+    # df_25port = data_25port[0]
+    # dep_var = df_25port['SMALL LoPRIOR'].values
+    # indep_var = df_5factors['Mkt-RF'].values
+    # my_reg = OLSRegression(indep_var, dep_var, addConstant=True)
+    # sm_reg = OLS(dep_var, add_constant(indep_var)).fit()
+    # my_reg.__newey_west__()
+    # np.sqrt(NeweyWest(dep_var, add_constant(indep_var), my_reg.beta_hat, 5))
+    0

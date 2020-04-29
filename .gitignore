@@ -2,6 +2,9 @@
 .ipynb_checkpoints
 */.ipynb
 */.ipynb_checkpoints/*
+# IPython
+profile_default/
+ipython_config.py
 
 *.pyc
 *.pyo
