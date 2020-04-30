@@ -5,6 +5,7 @@ import scipy.stats as stats
 import pandas as pd
 import statsmodels.api as sm
 from statsmodels import tsa
+from scipy.stats import chi2 # for chi-square test
 def plotDistrib(k, dictOfDistribs, add_normal=True):
     '''
     Purpose: given a number k and a dictionary of array of numbers, will plot the
@@ -163,3 +164,36 @@ def arma_from_roots(ar_roots=[], ma_roots=[]):
         arma_process = sm.tsa.ArmaProcess(ar_coef, [1])
     ### Note: arma_process' has many helpful methods: arcoefs, macoefs, generate_sample, ...
     return arma_process
+
+# Source: https://stackoverflow.com/questions/7941226/how-to-add-line-based-on-slope-and-intercept-in-matplotlib
+def abline(slope, intercept, ax=None, label=None):
+    """Plot a line from slope and intercept"""
+    if ax is None:
+        ax = plt.gca()
+    x_vals = np.array(ax.get_xlim())
+    y_vals = intercept + slope * x_vals
+    if label is None:
+        ax.plot(x_vals.squeeze(), y_vals.squeeze(), '--')
+    else:
+        ax.plot(x_vals.squeeze(), y_vals.squeeze(), '--', label=label)
+        ax.legend()
+
+def plotline(point1, point2, ax=None, label=None):
+    ''' given two points on a line (two tupples), plots line '''
+    x1, y1 = point1
+    x2, y2 = point2
+    slope = (y2 - y1) / (x2 - x1)
+    intercept = y1 - x1 * slope
+    abline(slope, intercept, ax, label)
+
+def my_grs_test(regr_vector, market_sr):
+    ''' given the vector of regressions and market Sharpe-Ratio, returns test statistic
+        and p-value to jointly test that all the intercepts are 0 '''
+    alphas = np.array([reg.beta_hat[0] for reg in regr_vector]).reshape((1, -1)) # array with all the regression constants
+    resids = np.array([reg.resid for reg in regr_vector]).T # collecting all residuals
+    cov_resid = np.dot(resids.T, resids) / resids.shape[0] # covariance matrix of residuals
+    cov_resid_inv = np.linalg.inv(cov_resid)
+    grs_test_val = (resids.shape[0] * alphas.dot(cov_resid_inv).dot(alphas.T).squeeze()
+            / (1 + market_sr ** 2))
+    p_val = 1 - chi2.cdf(grs_test_val, len(regr_vector)) # p-value of test 'GRS test statistics is 0'
+    return grs_test_val, p_val

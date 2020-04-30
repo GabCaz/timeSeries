@@ -56,8 +56,8 @@ class OLSRegression:
         for i, coefficient, seHom, seHet, seNw, pval in zip(range(self.k), self.beta_hat,
                                                 standardErrorsHom, standardErrorsWhite,
                                                 standardErrorsNw, pvalues):
-            summaryTable['beta ' + str(i)] = pd.Series(data = [coefficient, seHom, seHet, seNw, pval],
-                                                       index = ['point estimate', 'se (homoskedastic)',
+            summaryTable['beta ' + str(i)] = pd.Series(data=[coefficient, seHom, seHet, seNw, pval],
+                                                       index=['point estimate', 'se (homoskedastic)',
                                                                'se (White estimator)',
                                                                'se Newey-West', 'p-value (using White)'])
         display(pd.DataFrame(summaryTable).transpose())
@@ -108,10 +108,8 @@ class OLSRegression:
                         'Hannan Quinn':hannan_quinn}
         display(pd.DataFrame(summaryTable))
 
-    def confidence_interval(self, cov_matrix='ols', alpha=0.95):
-        ''' prints the coefficients, the p-value for the test 'is zero', and an
-        alpha confidence interval. Depending on the method, use ols, white or
-        Newey-West variance-covariance matrix '''
+    def significance(self, cov_matrix='ols'):
+        ''' returns t-stats and p-values for each coefficient '''
         if cov_matrix == 'ols':
             # standard errors are ols
             self.__computeCovMatrix__(white=False)
@@ -122,6 +120,15 @@ class OLSRegression:
         elif cov_matrix == 'nw':
             self.__newey_west__()
             ses = [np.sqrt(se) for se in np.diagonal(self.newey_cov_matrix)]
+        tstats = self.beta_hat / ses
+        pvalues = (1 - stats.norm.cdf(np.abs(tstats))) * 2
+        return ses, tstats, pvalues
+
+    def confidence_interval(self, cov_matrix='ols', alpha=0.95, disp=True):
+        ''' prints the coefficients, the p-value for the test 'is zero', and an
+        alpha confidence interval. Depending on the method, use ols, white or
+        Newey-West variance-covariance matrix '''
+        ses, tstats, pvalues = self.significance(cov_matrix)
         summaryTable = dict()
         tstats = self.beta_hat / ses
         pvalues = (1 - stats.norm.cdf(np.abs(tstats))) * 2
@@ -134,8 +141,8 @@ class OLSRegression:
                                                        'se using ' + cov_matrix,
                                                        'p-value (using ' + cov_matrix + ')',
                                                         str(alpha) + ' confidence interval'])
-        display(pd.DataFrame(summaryTable).transpose())
-
+        if disp:
+            display(pd.DataFrame(summaryTable).transpose())
 
 if __name__ == '__main__':
     # import pdb
