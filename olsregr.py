@@ -42,7 +42,7 @@ class OLSRegression:
             self.beta_hat = self.ZPrimXInv.dot(Z.T).dot(Y).squeeze()
         self.n, self.k = getDimensions(X)
 
-    def summary(self):
+    def summary(self, coeff_name='beta '):
         ''' prints coefficients, standard errors and common regression statistics '''
         self.__computeCovMatrix__()
         self.__computeCovMatrix__(white=False)
@@ -56,7 +56,7 @@ class OLSRegression:
         for i, coefficient, seHom, seHet, seNw, pval in zip(range(self.k), self.beta_hat,
                                                 standardErrorsHom, standardErrorsWhite,
                                                 standardErrorsNw, pvalues):
-            summaryTable['beta ' + str(i)] = pd.Series(data=[coefficient, seHom, seHet, seNw, pval],
+            summaryTable[coeff_name + str(i)] = pd.Series(data=[coefficient, seHom, seHet, seNw, pval],
                                                        index=['point estimate', 'se (homoskedastic)',
                                                                'se (White estimator)',
                                                                'se Newey-West', 'p-value (using White)'])
@@ -124,7 +124,7 @@ class OLSRegression:
         pvalues = (1 - stats.norm.cdf(np.abs(tstats))) * 2
         return ses, tstats, pvalues
 
-    def confidence_interval(self, cov_matrix='ols', alpha=0.95, disp=True):
+    def confidence_interval(self, cov_matrix='ols', alpha=0.95, disp=True, coeff_name='beta '):
         ''' prints the coefficients, the p-value for the test 'is zero', and an
         alpha confidence interval. Depending on the method, use ols, white or
         Newey-West variance-covariance matrix '''
@@ -136,7 +136,7 @@ class OLSRegression:
         for i, coeff, se, pval in zip(range(self.k), self.beta_hat, ses, pvalues):
             interv = (str(np.round(coeff - conf_multiplicator * se, 2)) + ' - '
                         + str(np.round(coeff + conf_multiplicator * se, 2)))
-            summaryTable['beta ' + str(i)] = pd.Series(data=[coeff, se, pval, interv],
+            summaryTable[coeff_name + str(i)] = pd.Series(data=[coeff, se, pval, interv],
                                                        index=['point estimate',
                                                        'se using ' + cov_matrix,
                                                        'p-value (using ' + cov_matrix + ')',
