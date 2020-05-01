@@ -24,7 +24,7 @@ def plotDistrib(k, dictOfDistribs, add_normal=True):
         plt.plot(x, p, 'k', linewidth=2, color="r")
 
 
-def plotAllDistribs(dictOfDistribs, add_normal = True):
+def plotAllDistribs(dictOfDistribs, add_normal=True):
     '''
     Purpose: given a dictionary of array of numbers, will plot the distribution
     of each array
