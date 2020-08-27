@@ -1,3 +1,4 @@
+# Home-made implementation
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as stats
@@ -5,6 +6,7 @@ from olsregr import OLSRegression
 from arma import ARMA
 import pandas as pd
 from statsmodels.tsa.stattools import adfuller
+
 class TimeSeries:
     '''
     A class to perform early exploration on time series and fit some models

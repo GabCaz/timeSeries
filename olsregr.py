@@ -1,8 +1,9 @@
+# Home-made implementation
 from scipy.stats import norm # for confidence intervals
 import numpy as np
 import scipy.stats as stats
 import pandas as pd
-from timeseriesutils import getDimensions
+
 class OLSRegression:
     '''
     Attributes:
@@ -40,7 +41,7 @@ class OLSRegression:
                 print('Warning: Sample equivalent of 2nd moment matrix close to singular. Check multicollinearity')
             self.ZPrimXInv = np.linalg.inv(ZPrimX)
             self.beta_hat = self.ZPrimXInv.dot(Z.T).dot(Y).squeeze()
-        self.n, self.k = getDimensions(X)
+        self.n, self.k = self.getDimensions(X)
 
     def summary(self, coeff_name='beta '):
         ''' prints coefficients, standard errors and common regression statistics '''
@@ -50,7 +51,7 @@ class OLSRegression:
         standardErrorsHom = [np.sqrt(se) for se in np.diagonal(self.homoskedasticCovMatrix)]
         standardErrorsWhite = [np.sqrt(se) for se in np.diagonal(self.heteroskedasticCovMatrix)]
         standardErrorsNw = [np.sqrt(se) for se in np.diagonal(self.newey_cov_matrix)]
-        tstats = self.beta_hat / standardErrorsWhite
+        tstats = self.beta_hat / standardErrorsNw
         pvalues = (1 - stats.norm.cdf(np.abs(tstats))) * 2
         summaryTable = dict()
         for i, coefficient, seHom, seHet, seNw, pval in zip(range(self.k), self.beta_hat,
@@ -59,7 +60,7 @@ class OLSRegression:
             summaryTable[coeff_name + str(i)] = pd.Series(data=[coefficient, seHom, seHet, seNw, pval],
                                                        index=['point estimate', 'se (homoskedastic)',
                                                                'se (White estimator)',
-                                                               'se Newey-West', 'p-value (using White)'])
+                                                               'se Newey-West', 'p-value (using NW)'])
         display(pd.DataFrame(summaryTable).transpose())
         self.getRegressionStatistics()
 
@@ -93,6 +94,15 @@ class OLSRegression:
             sandwich += ((1 - lag / (1 + lags)) * (np.matmul(present.T, lagged)
                         + np.matmul(lagged.T, present)))
         self.newey_cov_matrix = self.XprimXInv.dot(sandwich).dot(self.XprimXInv)
+
+    def getDimensions(self, X):
+        '''retrieve number of observations and number of features'''
+        if (X.ndim == 1):
+            k = 1
+            n = X.shape[0]
+        else:
+            n,k = X.shape
+        return n, k
 
     def getRegressionStatistics(self):
         SSE = np.sum(self.resid ** 2)
@@ -143,7 +153,6 @@ class OLSRegression:
                                                         str(alpha) + ' confidence interval'])
         if disp:
             display(pd.DataFrame(summaryTable).transpose())
-
 if __name__ == '__main__':
     # import pdb
     # from statsmodels.regression.linear_model import OLS

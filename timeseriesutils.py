@@ -1,12 +1,21 @@
-'''AMAN's'''
-# Utils
+''' Useful methods and routines (built on top of statsmodesl) for time series
+    analysis. The script has two parts:
+    1. Plotting and early analysis methods (using matplotlib, etc.)
+    2. Routines built on top of statsmodels to perform common operations within
+       one call only (e.g. check for cointegration, test common OLS
+       assumptions...), so that the very essential information is readily
+       presented for such common tasks '''
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 import pandas as pd
 import statsmodels.api as sm
 from statsmodels import tsa
+from olsregr import OLSRegression
+from timeseries import TimeSeries
 from scipy.stats import chi2 # for chi-square test
+import statsmodels.stats.diagnostic as diagnostic
+from statsmodels.regression.rolling import RollingOLS
 def plotDistrib(k, dictOfDistribs, add_normal=True):
     '''
     Purpose: given a number k and a dictionary of array of numbers, will plot the
@@ -24,13 +33,12 @@ def plotDistrib(k, dictOfDistribs, add_normal=True):
         p = stats.norm.pdf(x, loc=np.mean(dictOfDistribs[k]), scale=np.std(dictOfDistribs[k]))
         plt.plot(x, p, 'k', linewidth=2, color="r")
 
-
 def plotAllDistribs(dictOfDistribs, add_normal=True):
     '''
     Purpose: given a dictionary of array of numbers, will plot the distribution
     of each array
     '''
-    plt.figure(figsize = [10, 6 * len(dictOfDistribs)]) # make large figure
+    plt.figure(figsize=[10, 6 * len(dictOfDistribs)]) # make large figure
     for k, i in zip(sorted(list(dictOfDistribs.keys())), range(1, len(dictOfDistribs) + 1)):
         plt.subplot(len(dictOfDistribs), 1, i)
         plotDistrib(k, dictOfDistribs, add_normal)
@@ -44,127 +52,18 @@ def getDimensions(X):
         n,k = X.shape
     return n, k
 
-### "wrapped" GLS statsmodel routine : from lab 3
-def _sm_calc_gls(y, x, Dtilde, addcon=True, cov_type=None, sig_level=.05, summary=0):
-    """Wrapper for statsmodels GLS regression
-       Note: we need to specify the "D" matrix in GLS.
-    """
-    if addcon:
-        X = sm.add_constant(x)
-    else:
-        X = x
-    ### SEs...
-    if cov_type==None:
-        gls_results = sm.regression.linear_model.GLS(y,X, sigma=Dtilde).fit(cov_type='nonrobust')
-    else:
-        gls_results = sm.regression.linear_model.GLS(y,X, sigma=Dtilde).fit(cov_type=cov_type)
-    ### print out the OLS estimation results
-    if summary==1:
-        print(gls_results.summary())
-    gls_beta_hat = gls_results.params # beta_hat
-    gls_resids   = gls_results.resid  # resids
-    gls_ci       = gls_results.conf_int(alpha=sig_level)[-2:] # 95% confidence intervals
-    return gls_beta_hat, gls_resids, gls_ci
-
-### "wrapped" OLS statsmodel routine: from lab 3
-def _sm_calc_ols(y, x, addcon=True, cov_type=None, sig_level=.05, summary=0):
-    """Wrapper for statsmodels OLS regression
-    """
-    if addcon:
-        X = sm.add_constant(x)
-    else:
-        X = x
-    if cov_type==None:
-        ols_results = sm.OLS(y,X).fit(cove_type='nonrobust')
-    else:
-        ols_results = sm.OLS(y,X).fit(cov_type=cov_type)
-    ### print out the OLS estimation results
-    if summary==1:
-        print(ols_results.summary())
-    ols_beta_hat = ols_results.params # beta_hat
-    ols_resids   = ols_results.resid  # resids
-    ols_ci       = ols_results.conf_int(alpha=sig_level)[-2:] # 95% confidence intervals
-    return ols_beta_hat, ols_resids, ols_ci
-
-### From lab 3: computing skewness
-def nth_moment(y, center, n):
-    """ Calculates nth moment around 'center"""
-    return np.sum((y - center)**n) / y.size
-
-### From lab 4: use information criteria to compare different lag length for ARMA
-### Let's use information criteria
-def calc_arma_ic(x, order_list):
-    ic_array = np.empty((3, len(order_list)))
-    for idx, order in enumerate(order_list):
-        # Set up model with given order
-        model = tsa.arima_model.ARMA(x , order=order )
-        # Fit and save criteria
-        try:
-            start_params = None
-            res = model.fit(start_params=start_params, maxiter=500 )
-        except Exception:
-            start_params = np.zeros(np.sum(order)+1)
-            res = model.fit(start_params=start_params, maxiter=500 )
-        ic_array[0,idx] = res.aic
-        ic_array[1,idx] = res.hqic
-        ic_array[2,idx] = res.bic
-
-    ### Return min orders for each criteria
-    aic_order = order_list[ np.argmin(ic_array[0,:]) ]
-    hqic_order = order_list[ np.argmin(ic_array[1,:]) ]
-    bic_order = order_list[ np.argmin(ic_array[2,:]) ]
-
-    ### Tuple of best orders
-    ic_orders = (aic_order, hqic_order, bic_order)
-    return ic_orders, ic_array
-
-### From lab 4: creating ARMA from roots
-def _roots2coef(roots):
-    """Given roots, get the coefficients"""
-    ### SymPy: package for symbolic computation
-    from sympy import symbols, expand, factor, collect, simplify, Mul
-
-    N_roots = len(roots)
-    L = symbols("L", commutative=False) # symbolic variable
-    ## Construct lag polynomial in the canonical form
-    expr = expand(1)
-    for r in roots:
-        expr*= -(L - r)
-    expr_expand = expand(expr)
-    expr_expand = expand((expr_expand.as_coefficients_dict()[1]**-1)*expr_expand).evalf(3)
-
-    ## factor out the lag polynomials and get "factor list" in the canonical form
-    expr_factor = factor(expr_expand)
-    for f in range(1, len(expr_factor.args)):
-        if f==1:
-            expr = expand(expr_factor.args[f]*-1).evalf(3)
-        else:
-            expr = Mul(expr, expand(expr_factor.args[f]*-1).evalf(3))
-
-    coef_list = [expr_expand.coeff(L,n) for n in range(N_roots + 1)]
-    ### convert to numpy floats
-    coefs = np.array(coef_list).astype(float)
-    ### normalize zero lag to 1
-    coefs /= coefs[0]
-    return coefs, expr, expr_expand
-
-def arma_from_roots(ar_roots=[], ma_roots=[]):
-    """Create an ARMA model class from roots"""
-    ar_coef, ar_expr, ar_expr_expand = _roots2coef(ar_roots)
-    if len(ma_roots)>0:
-        ma_coef, ma_expr, ma_expr_expand = _roots2coef(ma_roots)
-    print("AR lag polynomials in the form:", ar_expr_expand)
-    if len(ma_roots)>0:
-        print("MA lag polynomials in the form:", ma_expr_expand, "\n")
-    print("factored AR lag polynomials in the form:", ar_expr)
-    if len(ma_roots)>0:
-        print("factored MA lag polynomials in the form:", ma_expr, "\n")
-    if len(ma_roots)>0:
-        arma_process = sm.tsa.ArmaProcess(ar_coef, ma_coef)
-    else:
-        arma_process = sm.tsa.ArmaProcess(ar_coef, [1])
-    ### Note: arma_process' has many helpful methods: arcoefs, macoefs, generate_sample, ...
-    return arma_process
+def rolling_coefficients(X, Y, window_size=60, addConstant=True):
+    ''' returns coefficients of regression windows of Y on windows of X,
+    with given window_sise.
+    Returns: a list of arrays, where each array is the coefficient for a window '''
+    rolling_coeffs = [] # list of coefficients we will return
+    # for each window of observations...
+    for i in range(X.shape[0] - 60):
+        window_X = X[i:i + 60] # carve out windows
+        window_Y = Y[i:i + 60]
+        reg_window = OLSRegression(X=window_X, Y=window_Y, addConstant=True)
+        rolling_coeffs.append(reg_window.beta_hat)
+    return rolling_coeffs
 
 # Source: https://stackoverflow.com/questions/7941226/how-to-add-line-based-on-slope-and-intercept-in-matplotlib
 def abline(slope, intercept, ax=None, label=None):
@@ -198,3 +97,49 @@ def my_grs_test(regr_vector, market_sr):
             / (1 + market_sr ** 2))
     p_val = 1 - chi2.cdf(grs_test_val, len(regr_vector)) # p-value of test 'GRS test statistics is 0'
     return grs_test_val, p_val
+
+### Below this point are routines on top of statsmodels
+def test_multicollinearity(ols_fit):
+    ''' given a SM fitted OLS object, says whether risk of multicollinearity '''
+    return np.linalg.cond(ols_fit.model.exog)
+
+def test_hetro(ols_fit, endog=True):
+    ''' given SM fitted OLS object, helps determine whether residuals are heteroskedastic
+        or homoskedastic  '''
+    squared_resid = ols_fit.resid**2
+    TimeSeries(data=squared_resid, name='Squared regression residuals').find_order(1)
+    if not endog:
+        summary = {'ARCH test (5 lags)':diagnostic.het_arch(ols_fit.resid, nlags=5)[1]}
+    else:
+        summary = {'ARCH test (5 lags)':[diagnostic.het_arch(ols_fit.resid, nlags=5)[1]],
+                   'Breusch-Pagan test':[diagnostic.het_breuschpagan(ols_fit.resid, ols_fit.model.exog)[1]]}
+    display(pd.DataFrame(summary, index=['p values']))
+
+def test_autocor(ols_fit, nlags=5):
+    ''' test for autocorrelation in residuals '''
+    resid = ols_fit.resid
+    TimeSeries(data=resid, name='Regression residuals').find_order(1)
+    pv = diagnostic.acorr_breusch_godfrey(ols_fit, nlags=nlags)[1]
+    display(pd.DataFrame({'Breusch Godefrey test for autocorr. ' + str(nlags) + ' lags':pv},
+                         index=['p value']))
+
+def test_normality(ols_fit):
+    from statsmodels.graphics.gofplots import qqplot
+    from statsmodels.stats.stattools import jarque_bera
+    plotAllDistribs({'residuals':ols_fit.resid})
+    qqplot(ols_fit.resid)
+    display(pd.DataFrame({'jarque bera for normality':jarque_bera(ols_fit.resid)[1]},
+                         index=['p value']))
+
+def test_stable(ols_fit, window=60):
+    ''' Early exploration to see whether ols model has stable coefficients '''
+    roll = RollingOLS(ols_fit.model.endog, ols_fit.model.exog, window=window).fit()
+    fig, ax = plt.subplots(1, 1, figsize=(15,8))
+    for i in range(roll.params.shape[1]):
+        b = roll.params[:,i]
+        plt.plot(range(len(ols_fit.model.exog)), b, label='b'+str(i))
+        se = roll.bse[:,i]
+        plt.fill_between(range(len(ols_fit.model.exog)), b-2*se, b+2*se, alpha=.2)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
